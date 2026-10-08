@@ -1,29 +1,23 @@
-# Level 1: DVC fundamentals
+# Niveau 1 : fondamentaux DVC
 
-## Exercise 1.1
-(commands, `dvc push`/`dvc pull` outputs, note on upsampling to 600 rows)
+## Exercice 1.1 : versioning et remote
+- Iris n'a que 150 lignes : jeu suréchantillonné à 600 lignes (tirage avec remise + bruit gaussien 0.05) pour respecter le seuil de 500 lignes.
+- `dvc add data/iris.csv` crée `data/iris.csv.dvc` (pointeur md5) et `data/.gitignore`.
+- Remote local : `dvc remote add -d storage ../dvc-remote-level1`, puis `dvc push` : 1 file pushed.
+- `rm -rf .dvc/cache data/iris.csv` puis `dvc pull` : 1 file fetched and 1 file added. `wc -l` donne 601 lignes avant et après.
 
-## Exercise 1.2
-(paste `git log --oneline -- data/iris.csv.dvc` and the `head -1` outputs)
+## Exercice 1.2 : voyage dans le temps
+- 4 versions (v1 à v4) : 6ad7e1c, 19ad830, 8339424, 429270b (`git log --oneline -- data/iris.csv.dvc`).
+- `git checkout 6ad7e1c -- data/iris.csv.dvc` puis `dvc checkout` : en-tête d'origine (colonne `target`), 601 lignes. La branche reste sur main.
+- `git checkout main -- data/iris.csv.dvc` puis `dvc checkout` : colonnes `species` et `petal_area` de retour (v4).
 
-## Control questions
+## Questions de contrôle
 
-### 1. Why does DVC add the data file to .gitignore automatically?
-So Git never tracks the large file. Only the small `.dvc` pointer goes into
-Git. Without the .gitignore entry, a stray `git add .` would put the raw
-data in the history, where it cannot be removed easily.
+**1. Pourquoi DVC ajoute-t-il le fichier de données au .gitignore automatiquement ?**
+Pour que Git ne suive jamais le gros fichier : seul le petit pointeur `.dvc` entre dans l'historique. Sans cela, un `git add .` committerait la donnée brute, difficile à retirer ensuite.
 
-### 2. Repo size if I committed the raw CSV and modified it 20 times?
-Git keeps every version, so the history grows by roughly one copy of the
-file per change (about 21 copies). Packfile delta compression helps only
-for small text edits. With a 20 KB file it is negligible, but with a 2 GB
-dataset it means about 42 GB in every clone. With DVC, Git holds 21 tiny
-pointer files (a few hundred bytes), and data is downloaded only when needed.
-(Measure `wc -c data/iris.csv` and multiply by 21.)
+**2. Taille du dépôt si on committe le CSV brut et qu'on le modifie 20 fois ?**
+Git conserve chaque version : environ 21 copies du fichier (≈ 13,6 Ko x 21 ≈ 286 Ko ici). La compression delta aide peu. Avec un jeu de 2 Go, cela ferait environ 42 Go dans chaque clone. Avec DVC, Git ne garde que 21 pointeurs de quelques centaines d'octets.
 
-### 3. What does the DVC cache contain? What if I delete it without `dvc push`?
-`.dvc/cache` holds the real data files, stored by content hash (md5), plus
-the history of every version. If I delete it before pushing, the data is
-lost permanently: the .dvc pointers still reference hashes, but nothing
-exists to restore them, and `dvc pull` fails with missing-cache errors.
-In this lab the data had been pushed, so `dvc pull` restored it from the remote.
+**3. Que contient le cache DVC ? Que se passe-t-il si on le supprime sans `dvc push` ?**
+`.dvc/cache` contient les fichiers de données réels, stockés par hash md5, pour toutes les versions. Supprimé avant un push, les données sont perdues : les `.dvc` pointent vers des hashes sans contenu et `dvc pull` échoue. Ici les données avaient été poussées, donc `dvc pull` les a restaurées depuis le remote.
